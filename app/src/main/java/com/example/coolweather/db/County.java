@@ -9,7 +9,7 @@ import org.litepal.crud.DataSupport;
  * @time: 2019/10/8 15:54
  * @describe:
  **/
-public class Country extends DataSupport {
+public class County extends DataSupport {
     private int id;
 
     private String countyName;
