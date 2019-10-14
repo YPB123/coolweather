@@ -12,4 +12,13 @@ public class StringKey {
     public static final String KEY_PROVINCE = "province";
     public static final String KEY_CITY = "city";
     public static final String KEY_COUNTY = "county";
+    public static final String KEY_WEATHER = "weather";
+    public static final String KEY_HTTP = "http";
+    public static final String KEY_PING = "bing_pic";
+
+    public static final String NAME_OBJECT= "com.example.coolweather";
+
+    public static final String STATUS_OK = "ok";
+
+
 }

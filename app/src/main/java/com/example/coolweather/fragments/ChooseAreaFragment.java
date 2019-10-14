@@ -1,6 +1,7 @@
 package com.example.coolweather.fragments;
 
 import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Gravity;
@@ -22,6 +23,7 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
 import com.example.coolweather.R;
+import com.example.coolweather.WeatherActivity;
 import com.example.coolweather.config.StringKey;
 import com.example.coolweather.db.City;
 import com.example.coolweather.db.County;
@@ -104,6 +106,12 @@ public class ChooseAreaFragment extends Fragment {
                 } else if (currentLevel == LEVEL_CITY) {
                     selectCity = citiesList.get(position);
                     queryCounties();
+                } else if (currentLevel == LEVEL_COUNTY) {
+                    String weatherId = countiesList.get(position).getWeatherId();
+                    Intent intent = new Intent(getActivity(), WeatherActivity.class);
+                    intent.putExtra("weather_id", weatherId);
+                    startActivity(intent);
+                    getActivity().finish();
                 }
             }
         });
@@ -192,6 +200,7 @@ public class ChooseAreaFragment extends Fragment {
      */
     private void queryFromServe(String address, final String type) {
         showProgressBar();
+        Log.d("Http", "Url---->"+ address);
         HttpUtil.sendOkHttpRequest(address, new Callback() {
             @Override
             public void onFailure(Call call, IOException e) {
@@ -210,6 +219,7 @@ public class ChooseAreaFragment extends Fragment {
             @Override
             public void onResponse(Call call, Response response) throws IOException {
                 String responseText = response.body().string();
+                Log.d("Http", "---> "+ responseText);
                 boolean result = false;
                 if (StringKey.KEY_PROVINCE.equals(type)) {
                     result = Utility.handleProvinceResponse(responseText);

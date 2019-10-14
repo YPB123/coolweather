@@ -28,7 +28,7 @@ public class ExampleUnitTest {
 //        HttpURLConnection
         //okhttp3  socket
         OkHttpClient client = new OkHttpClient();
-        Request request = new Request.Builder().url("http://guolin.tech/api/china").build();
+        Request request = new Request.Builder().url("http://guolin.tech/aqi/china").build();
         client.newCall(request).enqueue(new Callback() {
             @Override
             public void onFailure(Call call, IOException e) {
@@ -45,7 +45,7 @@ public class ExampleUnitTest {
     @Test
     public void send() {
         OkHttpClient client = new OkHttpClient();
-        Request request = new Request.Builder().url("http://guolin.tech/api/china").build();
+        Request request = new Request.Builder().url("http://guolin.tech/aqi/china").build();
         try {
             Response response = client.newCall(request).execute();
             System.out.println(response.body().string());
