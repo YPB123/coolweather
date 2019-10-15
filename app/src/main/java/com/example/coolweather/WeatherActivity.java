@@ -6,7 +6,6 @@ import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.Button;
@@ -24,8 +23,8 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.bumptech.glide.Glide;
 import com.example.coolweather.config.StringKey;
-import com.example.coolweather.gson.Forecast;
-import com.example.coolweather.gson.Weather;
+import com.example.coolweather.gson.DailyForecastBean;
+import com.example.coolweather.gson.HeWeather6Bean;
 import com.example.coolweather.service.AutoUpdateService;
 import com.example.coolweather.util.HttpUtil;
 import com.example.coolweather.util.Utility;
@@ -83,12 +82,21 @@ public class WeatherActivity extends AppCompatActivity {
 
         mSwipeRefreshLayout.setColorSchemeColors(ContextCompat.getColor(this, R.color.colorPrimary));
         SharedPreferences prefs = getSharedPreferences("com.example.coolweather", MODE_PRIVATE);
-        String weatherString = prefs.getString(StringKey.KEY_WEATHER, null);
-        if (weatherString != null) {
+        String weatherString = prefs.getString(StringKey.KEY_WEATHER_NOW, null);
+        String forecastString = prefs.getString(StringKey.KEY_WEATHER_FORECAST, null);
+        String lifestyleString = prefs.getString(StringKey.KEY_WEATHER_LIFESTYLE, null);
+        String aqiString = prefs.getString(StringKey.KEY_AQI, null);
+        if (weatherString != null && forecastString != null && lifestyleString != null) {
             //有缓存时直接解析天气数据
-            Weather weather = Utility.handleWeatherResponse(weatherString);
-            mWeatherId = weather.basic.weatherId;
+            HeWeather6Bean weather = Utility.handleWeatherResponse(weatherString);
+            HeWeather6Bean forecast = Utility.handleWeatherResponse(forecastString);
+            HeWeather6Bean lifestyle = Utility.handleWeatherResponse(lifestyleString);
+            HeWeather6Bean aqi = Utility.handleWeatherResponse(aqiString);
+            mWeatherId = weather.getBasic().getCid();
             showWeatherInfo(weather);
+            showWeatherInfo(forecast);
+            showWeatherInfo(aqi);
+            showWeatherInfo(lifestyle);
         } else {
             //无缓存时去服务器查询天气
             mWeatherId = getIntent().getStringExtra("weather_id");
@@ -121,10 +129,21 @@ public class WeatherActivity extends AppCompatActivity {
      * 根据天气id请求城市天气信息
      */
     public void requestWeather(final String weatherId) {
+        nowRequest(weatherId);
+        forecastRequest(weatherId);
+        aqiRequest(weatherId);
+        lifestyleRequest(weatherId);
+        loadBingPic();
+    }
 
-        String weatherUrl = "http://guolin.tech/api/weather?cityid=" +
-                weatherId + "&key=5303909e97934cd39112e57b66aecd58";
-        HttpUtil.sendOkHttpRequest(weatherUrl, new Callback() {
+    /**
+     * 请求实况天气信息
+     */
+    private void nowRequest(final String weatherId) {
+
+        String nowWeatherUrl = StringKey.WEATHER_URL + "now?location="+ weatherId+"&key="+StringKey.KEY;
+
+        HttpUtil.sendOkHttpRequest(nowWeatherUrl, new Callback() {
             @Override
             public void onFailure(Call call, final IOException e) {
                 runOnUiThread(new Runnable() {
@@ -140,16 +159,16 @@ public class WeatherActivity extends AppCompatActivity {
             @Override
             public void onResponse(Call call, Response response) throws IOException {
                 final String responseText = response.body().string();
-                final Weather weather = Utility.handleWeatherResponse(responseText);
+                final HeWeather6Bean weather = Utility.handleWeatherResponse(responseText);
                 Log.d(StringKey.KEY_HTTP, "onResponse: "+ responseText);
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        if (weather != null && StringKey.STATUS_OK.equals(weather.status)) {
+                        if (weather != null && StringKey.STATUS_OK.equals(weather.getStatus())) {
                             SharedPreferences.Editor editor = getSharedPreferences(StringKey.NAME_OBJECT, MODE_PRIVATE).edit();
-                            editor.putString(StringKey.KEY_WEATHER, responseText);
+                            editor.putString(StringKey.KEY_WEATHER_NOW, responseText);
                             editor.apply();
-                            mWeatherId = weather.basic.weatherId;
+                            mWeatherId = weather.getBasic().getCid();
                             showWeatherInfo(weather);
                         } else {
                             Toast.makeText(WeatherActivity.this, "获取天气信息失败", Toast.LENGTH_SHORT).show();
@@ -159,49 +178,184 @@ public class WeatherActivity extends AppCompatActivity {
                 });
             }
         });
-        loadBingPic();
+    }
+
+    /**
+     *请求天气预报
+     */
+    private void forecastRequest(final String weatherId) {
+
+        String forecastUrl = StringKey.WEATHER_URL + "forecast?location="+ weatherId+"&key="+StringKey.KEY;
+
+        HttpUtil.sendOkHttpRequest(forecastUrl, new Callback() {
+            @Override
+            public void onFailure(Call call, final IOException e) {
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Log.d(TAG, "http "+ e.getMessage());
+                        Toast.makeText(WeatherActivity.this, "获取天气信息失败", Toast.LENGTH_SHORT).show();
+                        mSwipeRefreshLayout.setRefreshing(false);
+                    }
+                });
+            }
+
+            @Override
+            public void onResponse(Call call, Response response) throws IOException {
+                final String responseText = response.body().string();
+                final HeWeather6Bean weather = Utility.handleWeatherResponse(responseText);
+                Log.d(StringKey.KEY_HTTP, "onResponse: "+ responseText);
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (weather != null && StringKey.STATUS_OK.equals(weather.getStatus())) {
+                            SharedPreferences.Editor editor = getSharedPreferences(StringKey.NAME_OBJECT, MODE_PRIVATE).edit();
+                            editor.putString(StringKey.KEY_WEATHER_FORECAST, responseText);
+                            editor.apply();
+                            showWeatherInfo(weather);
+                        } else {
+                            Toast.makeText(WeatherActivity.this, "获取天气信息失败", Toast.LENGTH_SHORT).show();
+                        }
+                        mSwipeRefreshLayout.setRefreshing(false);
+                    }
+                });
+            }
+        });
+    }
+
+    /**
+     * 请求空气状况
+     */
+    private void aqiRequest(final String weatherId) {
+        String aqiWeatherUrl = StringKey.AQI_URL + "now?location="+ weatherId+"&key="+StringKey.KEY;
+
+        HttpUtil.sendOkHttpRequest(aqiWeatherUrl, new Callback() {
+            @Override
+            public void onFailure(Call call, final IOException e) {
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Log.d(TAG, "http "+ e.getMessage());
+                        Toast.makeText(WeatherActivity.this, "获取天气信息失败", Toast.LENGTH_SHORT).show();
+                        mSwipeRefreshLayout.setRefreshing(false);
+                    }
+                });
+            }
+
+            @Override
+            public void onResponse(Call call, Response response) throws IOException {
+                final String responseText = response.body().string();
+                final HeWeather6Bean weather = Utility.handleWeatherResponse(responseText);
+                Log.d(StringKey.KEY_HTTP, "onResponse: "+ responseText);
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (weather != null && StringKey.STATUS_OK.equals(weather.getStatus())) {
+                            SharedPreferences.Editor editor = getSharedPreferences(StringKey.NAME_OBJECT, MODE_PRIVATE).edit();
+                            editor.putString(StringKey.KEY_AQI, responseText);
+                            editor.apply();
+                            showWeatherInfo(weather);
+                        } else {
+                            Toast.makeText(WeatherActivity.this, "获取天气信息失败", Toast.LENGTH_SHORT).show();
+                        }
+                        mSwipeRefreshLayout.setRefreshing(false);
+                    }
+                });
+            }
+        });
+    }
+
+    /**
+     * 请求生活指数
+     */
+    private void lifestyleRequest(final String weatherId) {
+
+        String lifestyleWeatherUrl = StringKey.WEATHER_URL + "lifestyle?location="+ weatherId+"&key="+StringKey.KEY;
+
+        HttpUtil.sendOkHttpRequest(lifestyleWeatherUrl, new Callback() {
+            @Override
+            public void onFailure(Call call, final IOException e) {
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Log.d(TAG, "http "+ e.getMessage());
+                        Toast.makeText(WeatherActivity.this, "获取天气信息失败", Toast.LENGTH_SHORT).show();
+                        mSwipeRefreshLayout.setRefreshing(false);
+                    }
+                });
+            }
+
+            @Override
+            public void onResponse(Call call, Response response) throws IOException {
+                final String responseText = response.body().string();
+                final HeWeather6Bean weather = Utility.handleWeatherResponse(responseText);
+                Log.d(StringKey.KEY_HTTP, "onResponse: "+ responseText);
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (weather != null && StringKey.STATUS_OK.equals(weather.getStatus())) {
+                            SharedPreferences.Editor editor = getSharedPreferences(StringKey.NAME_OBJECT, MODE_PRIVATE).edit();
+                            editor.putString(StringKey.KEY_WEATHER_LIFESTYLE, responseText);
+                            editor.apply();
+                            showWeatherInfo(weather);
+                        } else {
+                            Toast.makeText(WeatherActivity.this, "获取天气信息失败", Toast.LENGTH_SHORT).show();
+                        }
+                        mSwipeRefreshLayout.setRefreshing(false);
+                    }
+                });
+            }
+        });
     }
 
     /**
      * 处理并展示Weather实体类中的数据
      */
-    private void showWeatherInfo(Weather weather) {
-        String cityName = weather.basic.cityName;
-        String updateTime = weather.basic.update.updateTime.split(" ")[1];
-        String degree = weather.now.temperature + "℃";
-        String weatherInfo = weather.now.more.info;
-
+    private void showWeatherInfo(HeWeather6Bean weather) {
+        String cityName = weather.getBasic().getLocation();
+        String updateTime = weather.getUpdate().getLoc();
         mTitleCityTv.setText(cityName);
         mTitleUpdateTimeTv.setText(updateTime);
-        mDegreeTv.setText(degree);
-        mWeatherInfoTv.setText(weatherInfo);
-        mForecastLl.removeAllViews();
 
-        for (Forecast forecast : weather.forecastsList) {
-            View view = LayoutInflater.from(this).inflate(R.layout.item_forecast, mForecastLl, false);
-            TextView dateText = view.findViewById(R.id.tv_date);
-            TextView infoText = view.findViewById(R.id.tv_info);
-            TextView maxText = view.findViewById(R.id.tv_max);
-            TextView minText = view.findViewById(R.id.tv_min);
+        if (weather.getNow() != null) {
+            String degree = weather.getNow().getTmp() + "℃";
+            String weatherInfo = weather.getNow().getCondTxt();
+            mDegreeTv.setText(degree);
+            mWeatherInfoTv.setText(weatherInfo);
+        }
 
-            dateText.setText(forecast.date);
-            infoText.setText(forecast.more.info);
-            maxText.setText(forecast.temperature.max);
-            minText.setText(forecast.temperature.max);
-            mForecastLl.addView(view);
+        if (weather.getDailyForecast() != null) {
+            mForecastLl.removeAllViews();
+            for (DailyForecastBean forecast : weather.getDailyForecast()) {
+                View view = LayoutInflater.from(this).inflate(R.layout.item_forecast, mForecastLl, false);
+                TextView dateText = view.findViewById(R.id.tv_date);
+                TextView infoText = view.findViewById(R.id.tv_info);
+                TextView maxText = view.findViewById(R.id.tv_max);
+                TextView minText = view.findViewById(R.id.tv_min);
+
+                dateText.setText(forecast.getDate());
+                infoText.setText(forecast.getCondTxtD());
+                maxText.setText(forecast.getTmpMax());
+                minText.setText(forecast.getTmpMin());
+                mForecastLl.addView(view);
+            }
         }
-        if (weather.aqi != null) {
-            mAqiTv.setText(weather.aqi.city.aqi);
-            mPm25Tv.setText(weather.aqi.city.pm25);
+
+        if (weather.getAirNowCity() != null) {
+            mAqiTv.setText(weather.getAirNowCity().getAqi());
+            mPm25Tv.setText(weather.getAirNowCity().getPm25());
         }
-        String comfort = "舒适度：" + weather.suggestion.comfort.info;
-        String carWash = "洗车指数" + weather.suggestion.carWash.info;
-        String sport = "运动建议" + weather.suggestion.sport.info;
-        mComfortTv.setText(comfort);
-        mSportTv.setText(sport);
-        mCarWashTv.setText(carWash);
+
+        if (weather.getLifestyle() != null) {
+            String comfort = "舒适度：" + weather.getLifestyle().get(0).getTxt();
+            String carWash = "穿衣推荐：" + weather.getLifestyle().get(1).getTxt();
+            String sport = "运动建议："  + weather.getLifestyle().get(3).getTxt();
+            mComfortTv.setText(comfort);
+            mSportTv.setText(sport);
+            mCarWashTv.setText(carWash);
+        }
+
         mWeatherSv.setVisibility(View.VISIBLE);
-
         Intent intent = new Intent(this, AutoUpdateService.class);
         startService(intent);
     }

@@ -7,7 +7,6 @@ import android.content.SharedPreferences;
 import android.os.Bundle;
 
 import com.example.coolweather.config.StringKey;
-import com.example.coolweather.gson.Weather;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -16,8 +15,11 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        SharedPreferences preferences = getSharedPreferences("com.example.coolweather", MODE_PRIVATE);
-        if (preferences.getString(StringKey.KEY_WEATHER, null) != null) {
+        SharedPreferences preferences = getSharedPreferences(StringKey.NAME_OBJECT, MODE_PRIVATE);
+        String weatherString = preferences.getString(StringKey.KEY_WEATHER_NOW, null);
+        String forecastString = preferences.getString(StringKey.KEY_WEATHER_FORECAST, null);
+        String lifestyleString = preferences.getString(StringKey.KEY_WEATHER_LIFESTYLE, null);
+        if (weatherString != null && forecastString != null && lifestyleString != null) {
             Intent intent = new Intent(this, WeatherActivity.class);
             startActivity(intent);
             finish();

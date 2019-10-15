@@ -5,7 +5,7 @@ import android.text.TextUtils;
 import com.example.coolweather.db.City;
 import com.example.coolweather.db.County;
 import com.example.coolweather.db.Province;
-import com.example.coolweather.gson.Weather;
+import com.example.coolweather.gson.HeWeather6Bean;
 import com.google.gson.Gson;
 
 import org.json.JSONArray;
@@ -92,12 +92,12 @@ public class Utility {
     /**
      * 将返回的数据解析成Weather实体类
      */
-    public static Weather handleWeatherResponse(String response) {
+    public static HeWeather6Bean handleWeatherResponse(String response) {
         try {
             JSONObject jsonObject = new JSONObject(response);
-            JSONArray jsonArray = jsonObject.getJSONArray("HeWeather");
+            JSONArray jsonArray = jsonObject.getJSONArray("HeWeather6");
             String weatherContent = jsonArray.getJSONObject(0).toString();
-            return new Gson().fromJson(weatherContent, Weather.class);
+            return new Gson().fromJson(weatherContent, HeWeather6Bean.class);
         } catch (JSONException e) {
             e.printStackTrace();
         }

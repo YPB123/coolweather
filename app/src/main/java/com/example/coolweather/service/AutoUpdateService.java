@@ -10,7 +10,7 @@ import android.os.SystemClock;
 import android.util.Log;
 
 import com.example.coolweather.config.StringKey;
-import com.example.coolweather.gson.Weather;
+import com.example.coolweather.gson.HeWeather6Bean;
 import com.example.coolweather.util.HttpUtil;
 import com.example.coolweather.util.Utility;
 
@@ -53,14 +53,14 @@ public class AutoUpdateService extends Service {
      */
     private void updateWeather() {
         SharedPreferences prefs = getSharedPreferences(StringKey.NAME_OBJECT, MODE_PRIVATE);
-        String weatherString = prefs.getString(StringKey.KEY_WEATHER, null);
+        String weatherString = prefs.getString(StringKey.KEY_WEATHER_NOW, null);
         if (weatherString != null) {
             //有缓存时直接解析天气数据
-            Weather weather = Utility.handleWeatherResponse(weatherString);
-            String weatherId = weather.basic.weatherId;
+            HeWeather6Bean weather = Utility.handleWeatherResponse(weatherString);
+            String weatherId = weather.getBasic().getCid();
 
-            String weatherUrl = "http://guolin.tech/api/weather?city="+weatherId ;
-            HttpUtil.sendOkHttpRequest(weatherUrl, new Callback() {
+            String nowWeatherUrl = StringKey.WEATHER_URL + "now?location"+ weatherId+"&key="+StringKey.KEY;
+            HttpUtil.sendOkHttpRequest(nowWeatherUrl, new Callback() {
                 @Override
                 public void onFailure(Call call, IOException e) {
                     Log.e(StringKey.KEY_HTTP, "onFailure: "+ e.getMessage());
@@ -69,11 +69,11 @@ public class AutoUpdateService extends Service {
 
                 @Override
                 public void onResponse(Call call, Response response) throws IOException {
-                    String responeText = response.body().string();
-                    Weather weather = Utility.handleWeatherResponse(responeText);
-                    if (weather != null && StringKey.STATUS_OK.equals(weather.status)) {
+                    String responseText = response.body().string();
+                    HeWeather6Bean weather = Utility.handleWeatherResponse(responseText);
+                    if (weather != null && StringKey.STATUS_OK.equals(weather.getStatus())) {
                         SharedPreferences.Editor editor = getSharedPreferences(StringKey.NAME_OBJECT, MODE_PRIVATE).edit();
-                        editor.putString(StringKey.KEY_WEATHER, responeText);
+                        editor.putString(StringKey.KEY_WEATHER_NOW, responseText);
                         editor.apply();
                     }
                 }
